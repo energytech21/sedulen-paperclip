@@ -1,6 +1,8 @@
 services:
   db:
     image: postgres:17-alpine
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: paperclip
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -15,7 +17,7 @@ services:
     restart: unless-stopped
 
   server:
-    image: ghcr.io/YOUR_GITHUB_USERNAME/paperclip:latest
+    image: ghcr.io/energytech21/sedulen-paperclip:latest
     ports:
       - "3100:3100"
     environment:
