@@ -7,6 +7,36 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && corepack enable
 
+# --- .NET toolchain for agent workspaces ---------------------------------
+# Modern, cross-platform .NET (net6.0 .. net9.0). The .NET 9 SDK builds older
+# target frameworks; the 6.0/7.0 runtimes let older test suites execute.
+# NOTE: classic .NET Framework (net4x) is Windows-only and cannot run here;
+# Mono below is a best-effort build path for legacy net4x class libraries
+# (WPF/WinForms/classic WCF will not work on Linux).
+ENV DOTNET_ROOT=/usr/share/dotnet \
+    PATH=/usr/share/dotnet:/usr/share/dotnet/tools:$PATH \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=1 \
+    NUGET_PACKAGES=/paperclip/.nuget/packages
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends libicu-dev libssl3 \
+  && rm -rf /var/lib/apt/lists/* \
+  && curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
+  && chmod +x /tmp/dotnet-install.sh \
+  && /tmp/dotnet-install.sh --channel 9.0 --install-dir /usr/share/dotnet \
+  && /tmp/dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet \
+  && /tmp/dotnet-install.sh --channel 7.0 --runtime dotnet --install-dir /usr/share/dotnet \
+  && /tmp/dotnet-install.sh --channel 6.0 --runtime dotnet --install-dir /usr/share/dotnet \
+  && rm /tmp/dotnet-install.sh \
+  && dotnet --info
+
+# Legacy .NET Framework (net4x) build support via Mono — best effort, Linux limits apply.
+# NOTE: no standalone `nuget` apt package on Debian trixie; mono-complete ships its
+# own NuGet wrapper and the .NET SDK provides `dotnet nuget`/`dotnet restore`.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends mono-complete \
+  && rm -rf /var/lib/apt/lists/*
+
 # Modify the existing node user/group to have the specified UID/GID to match host user
 RUN usermod -u $USER_UID --non-unique node \
   && groupmod -g $USER_GID --non-unique node \
