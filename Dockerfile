@@ -31,11 +31,23 @@ RUN apt-get update \
   && dotnet --info
 
 # Legacy .NET Framework (net4x) build support via Mono — best effort, Linux limits apply.
-# NOTE: no standalone `nuget` apt package on Debian trixie; mono-complete ships its
-# own NuGet wrapper and the .NET SDK provides `dotnet nuget`/`dotnet restore`.
+# NOTE: no standalone `nuget` apt package on Debian trixie; the .NET SDK provides
+# `dotnet nuget`/`dotnet restore`, and the standalone classic nuget.exe (below) runs
+# under Mono for legacy packages.config restores.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends mono-complete \
   && rm -rf /var/lib/apt/lists/*
+
+# Standalone classic NuGet CLI (nuget.exe) run via Mono. nuget.exe is x86-only
+# (there is no win-x64 build) and is officially supported on Linux under Mono with
+# limits: `nuget restore` works for packages.config but NOT .sln/.slnx, and
+# `nuget update` is unsupported — use `dotnet restore`/`msbuild -t:restore` there.
+ARG NUGET_VERSION=6.14.0
+RUN curl -fsSL "https://dist.nuget.org/win-x86-commandline/v${NUGET_VERSION}/nuget.exe" \
+      -o /usr/local/lib/nuget.exe \
+  && printf '#!/bin/sh\nexec mono /usr/local/lib/nuget.exe "$@"\n' > /usr/local/bin/nuget \
+  && chmod +x /usr/local/bin/nuget \
+  && nuget help | head -1
 
 # Modify the existing node user/group to have the specified UID/GID to match host user
 RUN usermod -u $USER_UID --non-unique node \
